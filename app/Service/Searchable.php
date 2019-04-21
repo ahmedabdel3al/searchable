@@ -31,17 +31,32 @@ trait Searchable
         self::$searchableKeyWithValue = self::mapRequest($request->all());
         //get searchable key ['name']
         $keys = self::getSearchableKeys();
+        //empty inputs you should search
         if (empty($keys)) {
             return;
         }
         //getQueryBuilder
         foreach ($keys as $key) {
+            //check if input like posts-title that mean you should search with relation
+            //str searches for the first occurrence of a string inside another string
+            // ex : posts-title = title => that means you should search where has relation with with posts
+            // and title column in table posts table should equal to title
             if (strstr($key, '-')) {
                 $relation = explode('-', $key);
                 $query->whereHas($relation[0], function ($q) use ($relation, $key) {
-                    $q->where($relation[1], self::$searchableKeyWithValue[$key]['value']);
+                    $op = self::$Operator[self::$searchableKeyWithValue[$key]['operator']];
+                    if ($op == self::$Operator['like']) {
+                        $q->where($key, "$op",
+                            '%' . self::$searchableKeyWithValue[$key]['value'] . '%');
+                    } else {
+                        $q->where($relation[1], "$op",
+                            self::$searchableKeyWithValue[$key]['value']);
+                    }
                 });
             } else {
+                //check input like name__like = ca
+                // that means you search in same table but with like mode
+                //else if input name=ca  that means search with equal value
                 $op = self::$Operator[self::$searchableKeyWithValue[$key]['operator']];
                 if ($op == self::$Operator['like']) {
                     $query->where($key, "$op", '%' . self::$searchableKeyWithValue[$key]['value'] . '%');
@@ -55,6 +70,7 @@ trait Searchable
     }
 
     /**
+     * @todo MapRequest to define Our Rule which return array like that ["name" => array:2 ["operator" => "like","value" => "c"]]
      * @param array $inputs
      * @return array
      */
